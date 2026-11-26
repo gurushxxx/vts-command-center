@@ -1,0 +1,167 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VTS COMMAND</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#f3f5f9;color:#172033}
+header{background:#101c32;color:white;padding:20px}
+header h2{margin:0;font-size:23px}
+header p{margin:7px 0 0;color:#bdc8da}
+main{padding:16px;max-width:1100px;margin:auto}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.card,.panel{background:white;padding:17px;border-radius:12px;box-shadow:0 2px 8px #0000000d}
+.stats strong{font-size:25px;display:block;margin-top:8px}
+.panel{margin-top:17px}
+h3{margin-top:0}
+label{display:block;font-size:13px;font-weight:bold;margin:13px 0 6px}
+input,select,textarea{width:100%;padding:12px;border:1px solid #d6dce6;border-radius:7px;background:white;font-size:15px}
+textarea{min-height:85px}
+button{border:0;border-radius:7px;padding:12px 16px;background:#173c70;color:white;font-weight:bold;margin-top:14px}
+.alert{border:1px solid #e1e5ed;border-radius:9px;padding:13px;margin-top:12px}
+.alert small{color:#64748b}
+.status{font-weight:bold;color:#b45309}
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+.filters select{flex:1;min-width:130px}
+@media(min-width:650px){.stats{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<header>
+<h2>VTS COMMAND</h2>
+<p>Monitor. Respond. Record.</p>
+</header>
+<main>
+<div class="stats">
+<div class="card">Total Alerts<strong id="total">0</strong></div>
+<div class="card">Pending<strong id="pending">0</strong></div>
+<div class="card">Attended<strong id="attended">0</strong></div>
+<div class="card">Critical<strong id="critical">0</strong></div>
+</div>
+
+<div class="panel">
+<h3>Register New Alert</h3>
+<form id="alertForm">
+<label>Company</label>
+<select id="company" required>
+<option value="">Select company</option>
+<option>Reliance</option>
+<option>CBFS</option>
+</select>
+
+<label>Portal</label>
+<select id="portal" required>
+<option value="">Select portal</option>
+<option>JioHumsafar</option>
+<option>Taabi+</option>
+<option>G-Trophy</option>
+</select>
+
+<label>Alert Type</label>
+<select id="type" required>
+<option value="">Select alert</option>
+<option>Mobile distraction</option>
+<option>Driver Distraction</option>
+<option>Collision Warning</option>
+<option>Driver Fatigue</option>
+<option>Following Distance</option>
+<option>Harsh Braking</option>
+<option>Continue Driving</option>
+<option>Night Driving</option>
+<option>Panic Press</option>
+<option>Seat belt</option>
+<option>Lane departure</option>
+<option>Unauthorised Place stop</option>
+<option>Overspeeding</option>
+</select>
+
+<label>Vehicle Number</label>
+<input id="vehicle" placeholder="GJ01AB1234" required>
+
+<label>Driver Name</label>
+<input id="driver" placeholder="Driver name">
+
+<label>Alert Date & Time</label>
+<input id="time" type="datetime-local" required>
+
+<label>Speed (km/h)</label>
+<input id="speed" type="number" placeholder="0">
+
+<label>GPS Location / Map Link</label>
+<input id="location" placeholder="Paste location or map link">
+
+<label>Video Link</label>
+<input id="video" type="url" placeholder="Video link">
+
+<label>Photo Link</label>
+<input id="photo" type="url" placeholder="Photo link">
+
+<label>Location Screenshot Link</label>
+<input id="mapshot" type="url" placeholder="Screenshot link">
+
+<label>Operator Name</label>
+<input id="operator" placeholder="Operator name" required>
+
+<label>Operator Remarks</label>
+<textarea id="remarks" placeholder="Enter action taken and remarks"></textarea>
+
+<button type="submit">Save Alert</button>
+</form>
+</div>
+
+<div class="panel">
+<h3>Alert History</h3>
+<div class="filters">
+<input id="search" placeholder="Search vehicle number">
+<select id="filter">
+<option value="All">All Status</option>
+<option value="Pending">Pending</option>
+<option value="Attended">Attended</option>
+</select>
+</div>
+<div id="history"></div>
+</div>
+</main>
+
+<script>
+let alerts=JSON.parse(localStorage.getItem("vtsAlerts")||"[]");
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem("vtsAlerts",JSON.stringify(alerts))}
+function render(){
+$("total").textContent=alerts.length;
+$("pending").textContent=alerts.filter(a=>a.status==="Pending").length;
+$("attended").textContent=alerts.filter(a=>a.status==="Attended").length;
+$("critical").textContent=alerts.filter(a=>["Collision Warning","Panic Press","Driver Fatigue"].includes(a.type)).length;
+let q=$("search").value.toLowerCase(),f=$("filter").value;
+$("history").innerHTML="";
+alerts.filter(a=>(a.vehicle.toLowerCase().includes(q))&&(f==="All"||a.status===f)).forEach(a=>{
+let d=document.createElement("div");d.className="alert";
+let title=document.createElement("b");title.textContent=a.type+" — "+a.vehicle;
+let info=document.createElement("p");info.textContent=a.company+" / "+a.portal+" | "+a.driver+" | "+a.time;
+let status=document.createElement("p");status.className="status";status.textContent=a.status;
+let remarks=document.createElement("small");remarks.textContent="Operator: "+a.operator+" | "+a.remarks;
+d.append(title,info,status,remarks);
+if(a.status==="Pending"){
+let btn=document.createElement("button");btn.textContent="Mark Attended";
+btn.onclick=()=>{a.status="Attended";save();render()};
+d.append(btn);
+}
+$("history").append(d);
+});
+}
+$("alertForm").onsubmit=e=>{
+e.preventDefault();
+let a={};
+["company","portal","type","vehicle","driver","time","speed","location","video","photo","mapshot","operator","remarks"].forEach(id=>a[id]=$(id).value);
+a.status="Pending";a.created=new Date().toISOString();
+alerts.unshift(a);save();e.target.reset();render();
+};
+$("search").oninput=render;
+$("filter").onchange=render;
+render();
+</script>
+</body>
+</html>
