@@ -170,7 +170,7 @@ async function loadAlerts() {
     vehicle: a.vehicle_number,
     driver: a.driver_name || "",
     time: a.alert_time || "",
-    speed: a.speed || "",
+    speed: a.speed ?? "",
 location: a.location || "",
 video: a.video_url || "",
 photo: a.photo_url || "",
@@ -227,7 +227,7 @@ function render() {
     d.children[3].textContent = "Operator: " + a.operator + " | " + a.remarks;
     const extra = document.createElement("p");
 extra.textContent =
-  "Speed: " + (a.speed || "N/A") +
+  "Speed: " + (a.speed ?? "N/A") +
   " | Location: " + (a.location || "N/A");
 d.appendChild(extra);
 
