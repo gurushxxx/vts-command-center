@@ -28,6 +28,7 @@ button{border:0;border-radius:7px;padding:12px 16px;background:#173c70;color:whi
 .filters select{flex:1;min-width:130px}
 @media(min-width:650px){.stats{grid-template-columns:repeat(4,1fr)}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <header>
@@ -127,41 +128,158 @@ button{border:0;border-radius:7px;padding:12px 16px;background:#173c70;color:whi
 </main>
 
 <script>
-let alerts=JSON.parse(localStorage.getItem("vtsAlerts")||"[]");
-const $=id=>document.getElementById(id);
-function save(){localStorage.setItem("vtsAlerts",JSON.stringify(alerts))}
-function render(){
-$("total").textContent=alerts.length;
-$("pending").textContent=alerts.filter(a=>a.status==="Pending").length;
-$("attended").textContent=alerts.filter(a=>a.status==="Attended").length;
-$("critical").textContent=alerts.filter(a=>["Collision Warning","Panic Press","Driver Fatigue"].includes(a.type)).length;
-let q=$("search").value.toLowerCase(),f=$("filter").value;
-$("history").innerHTML="";
-alerts.filter(a=>(a.vehicle.toLowerCase().includes(q))&&(f==="All"||a.status===f)).forEach(a=>{
-let d=document.createElement("div");d.className="alert";
-let title=document.createElement("b");title.textContent=a.type+" — "+a.vehicle;
-let info=document.createElement("p");info.textContent=a.company+" / "+a.portal+" | "+a.driver+" | "+a.time;
-let status=document.createElement("p");status.className="status";status.textContent=a.status;
-let remarks=document.createElement("small");remarks.textContent="Operator: "+a.operator+" | "+a.remarks;
-d.append(title,info,status,remarks);
-if(a.status==="Pending"){
-let btn=document.createElement("button");btn.textContent="Mark Attended";
-btn.onclick=()=>{a.status="Attended";save();render()};
-d.append(btn);
+const db = supabase.createClient(
+  "https://ytwoohutxvucibnlaagm.supabase.co",
+  "sb_publishable_XDaRRGPpX1b9Hg8IO7Dk0A_fVhm6nvC"
+);
+
+const $ = id => document.getElementById(id);
+let alerts = [];
+
+const login = document.createElement("div");
+login.className = "panel";
+login.innerHTML = `
+<h3>VTS COMMAND Login</h3>
+<form id="loginForm">
+<label>Email</label>
+<input id="loginEmail" type="email" required>
+<label>Password</label>
+<input id="loginPassword" type="password" required>
+<button type="submit">Login</button>
+<p id="loginError"></p>
+</form>`;
+document.body.insertBefore(login, document.querySelector("main"));
+
+const main = document.querySelector("main");
+main.style.display = "none";
+
+async function loadAlerts() {
+  const { data, error } = await db.from("vts_alerts")
+    .select("*").order("created_at", { ascending: false });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  alerts = data.map(a => ({
+    id: a.id,
+    company: a.company,
+    portal: a.portal,
+    type: a.alert_type,
+    vehicle: a.vehicle_number,
+    driver: a.driver_name || "",
+    time: a.alert_time || "",
+    operator: a.operator_name || "",
+    remarks: a.remarks || "",
+    status: a.status || "Pending"
+  }));
+
+  render();
 }
-$("history").append(d);
-});
-}
-$("alertForm").onsubmit=e=>{
-e.preventDefault();
-let a={};
-["company","portal","type","vehicle","driver","time","speed","location","video","photo","mapshot","operator","remarks"].forEach(id=>a[id]=$(id).value);
-a.status="Pending";a.created=new Date().toISOString();
-alerts.unshift(a);save();e.target.reset();render();
+
+$("loginForm").onsubmit = async e => {
+  e.preventDefault();
+
+  const { error } = await db.auth.signInWithPassword({
+    email: $("loginEmail").value,
+    password: $("loginPassword").value
+  });
+
+  if (error) {
+    $("loginError").textContent = error.message;
+    return;
+  }
+
+  login.style.display = "none";
+  main.style.display = "block";
+  await loadAlerts();
 };
-$("search").oninput=render;
-$("filter").onchange=render;
-render();
+
+function render() {
+  $("total").textContent = alerts.length;
+  $("pending").textContent = alerts.filter(a => a.status === "Pending").length;
+  $("attended").textContent = alerts.filter(a => a.status === "Attended").length;
+  $("critical").textContent = alerts.filter(a =>
+    ["Collision Warning", "Panic Press", "Driver Fatigue"].includes(a.type)
+  ).length;
+
+  const q = $("search").value.toLowerCase();
+  const f = $("filter").value;
+  $("history").innerHTML = "";
+
+  alerts.filter(a =>
+    a.vehicle.toLowerCase().includes(q) &&
+    (f === "All" || a.status === f)
+  ).forEach(a => {
+    const d = document.createElement("div");
+    d.className = "alert";
+    d.innerHTML = `<b></b><p></p><p class="status"></p><small></small>`;
+
+    d.children[0].textContent = a.type + " — " + a.vehicle;
+    d.children[1].textContent = a.company + " / " + a.portal + " | " + a.driver + " | " + a.time;
+    d.children[2].textContent = a.status;
+    d.children[3].textContent = "Operator: " + a.operator + " | " + a.remarks;
+
+    if (a.status === "Pending") {
+      const btn = document.createElement("button");
+      btn.textContent = "Mark Attended";
+      btn.onclick = async () => {
+        const { error } = await db.from("vts_alerts")
+          .update({ status: "Attended" }).eq("id", a.id);
+        if (error) alert(error.message);
+        else await loadAlerts();
+      };
+      d.append(btn);
+    }
+    $("history").append(d);
+  });
+}
+
+$("alertForm").onsubmit = async e => {
+  e.preventDefault();
+  const val = id => $(id).value;
+
+  const record = {
+    company: val("company"),
+    portal: val("portal"),
+    alert_type: val("type"),
+    vehicle_number: val("vehicle"),
+    driver_name: val("driver"),
+    alert_time: new Date(val("time")).toISOString(),
+    speed: val("speed") ? Number(val("speed")) : null,
+    location: val("location"),
+    video_url: val("video"),
+    photo_url: val("photo"),
+    map_screenshot_url: val("mapshot"),
+    operator_name: val("operator"),
+    remarks: val("remarks"),
+    status: "Pending"
+  };
+
+  const { error } = await db.from("vts_alerts").insert([record]);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  e.target.reset();
+  await loadAlerts();
+  alert("Alert saved!");
+};
+
+$("search").oninput = render;
+$("filter").onchange = render;
+
+(async () => {
+  const { data } = await db.auth.getSession();
+  if (data.session) {
+    login.style.display = "none";
+    main.style.display = "block";
+    await loadAlerts();
+  }
+})();
 </script>
 </body>
 </html>
