@@ -170,6 +170,11 @@ async function loadAlerts() {
     vehicle: a.vehicle_number,
     driver: a.driver_name || "",
     time: a.alert_time || "",
+    speed: a.speed || "",
+location: a.location || "",
+video: a.video_url || "",
+photo: a.photo_url || "",
+mapshot: a.map_screenshot_url || "",
     operator: a.operator_name || "",
     remarks: a.remarks || "",
     status: a.status || "Pending"
@@ -220,6 +225,27 @@ function render() {
     d.children[1].textContent = a.company + " / " + a.portal + " | " + a.driver + " | " + a.time;
     d.children[2].textContent = a.status;
     d.children[3].textContent = "Operator: " + a.operator + " | " + a.remarks;
+    const extra = document.createElement("p");
+extra.textContent =
+  "Speed: " + (a.speed || "N/A") +
+  " | Location: " + (a.location || "N/A");
+d.appendChild(extra);
+
+if (a.video) {
+  const video = document.createElement("a");
+  video.href = a.video;
+  video.textContent = "View Video";
+  video.target = "_blank";
+  d.appendChild(video);
+}
+
+if (a.photo) {
+  const photo = document.createElement("a");
+  photo.href = a.photo;
+  photo.textContent = "View Photo";
+  photo.target = "_blank";
+  d.appendChild(photo);
+}
 
     if (a.status === "Pending") {
       const btn = document.createElement("button");
